@@ -338,6 +338,7 @@
         .btn-next:hover  { background: #b8934f; }
         .btn-submit      { background: #2c2c2c; color: white; }
         .btn-submit:hover { background: #444; }
+        .btn-submit:disabled { background: #aaa; cursor: not-allowed; }
 
         .success-card {
             background: white; border-radius: 14px;
@@ -490,7 +491,6 @@
         <div class="section-sep">📦 推薦方案</div>
 
         <div class="pkg-grid">
-            <!-- 方案一 -->
             <div class="pkg-card" id="pk1" onclick="pickPkg(1)">
                 <div class="pkg-radio" id="pr1"></div>
                 <div class="pkg-name">入門方案</div>
@@ -504,7 +504,6 @@
                 </ul>
             </div>
 
-            <!-- 方案二 -->
             <div class="pkg-card pkg-featured" id="pk2" onclick="pickPkg(2)">
                 <span class="pkg-badge">⭐ 最受歡迎</span>
                 <div class="pkg-radio" id="pr2"></div>
@@ -520,7 +519,6 @@
                 </ul>
             </div>
 
-            <!-- 方案三 -->
             <div class="pkg-card" id="pk3" onclick="pickPkg(3)">
                 <div class="pkg-radio" id="pr3"></div>
                 <div class="pkg-name">旗艦方案</div>
@@ -721,7 +719,7 @@
 
         <div class="btn-row">
             <button class="btn btn-back" onclick="goPrev(4)">← 上一步</button>
-            <button class="btn btn-submit" onclick="doSubmit()">確認提交 ✓</button>
+            <button class="btn btn-submit" id="submitBtn" onclick="doSubmit()">確認提交 ✓</button>
         </div>
     </div>
 
@@ -836,7 +834,7 @@
         window.scrollTo(0, 0);
     }
 
-    // ── Package Selection（嚴格單選）──────────────────────
+    // ── Package Selection ──────────────────────────────────
     function pickPkg(n) {
         Object.keys(selPlats).forEach(k => {
             document.getElementById('cb_' + k).checked = false;
@@ -1032,16 +1030,92 @@
         document.getElementById('finalContent').innerHTML = html;
     }
 
-    // ── Submit ─────────────────────────────────────────────
-    function doSubmit() {
+    // ── Submit（連接 Formspree）────────────────────────────
+    async function doSubmit() {
         if (!document.getElementById('agreeChk').checked) {
             alert('請先同意服務條款');
             return;
         }
-        document.getElementById('s4').classList.remove('show');
-        document.getElementById('sSuccess').classList.add('show');
-        document.getElementById('progressWrap').style.display = 'none';
-        window.scrollTo(0, 0);
+
+        const brand   = document.getElementById('f_brand').value;
+        const contact = document.getElementById('f_contact').value;
+        const phone   = document.getElementById('f_phone').value;
+        const email   = document.getElementById('f_email').value;
+        const type    = document.getElementById('f_type').value;
+        const addr    = document.getElementById('f_addr').value;
+        const goal    = document.getElementById('f_goal').value;
+        const note    = document.getElementById('f_note').value;
+
+        // 整理推廣服務內容
+        let serviceText = '';
+        if (selPkg !== 0) {
+            const p = PKGS[selPkg];
+            serviceText = `${p.name}（HK$${p.price.toLocaleString()}）— ${p.items.join('、')}`;
+        } else {
+            serviceText = Object.entries(selPlats)
+                .map(([k, v]) => `${PLATS[k]}（HK$${v}）`).join('、');
+        }
+
+        // 附加服務
+        const addonText = Object.keys(selAddons).length > 0
+            ? Object.keys(selAddons).map(k => ADDONS[k].name).join('、')
+            : '無';
+
+        // 加急
+        const urgentMap = { none: '不需要', '48h': '緊急（48小時內）+30%', '24h': '超緊急（24小時內）+50%' };
+        const urgentText = urgentMap[selUrgent];
+
+        // 合計
+        const urgentAmt = selUrgent === '48h' ? Math.round(baseCost * 0.3)
+                        : selUrgent === '24h' ? Math.round(baseCost * 0.5) : 0;
+        const addonMin  = Object.values(selAddons).reduce((a, b) => a + b, 0);
+        const hasAddons = Object.keys(selAddons).length > 0;
+        const total     = baseCost + addonMin + urgentAmt;
+        const totalText = `HK$${total.toLocaleString()}${hasAddons ? ' 起' : ''}`;
+
+        const payload = {
+            _subject:   `【JJJ 飲食推廣】新申請 — ${brand}`,
+            _replyto:   email,
+            '餐廳品牌': brand,
+            '聯絡人':   contact,
+            '電話':     phone,
+            '電郵':     email,
+            '餐廳類型': type  || '未填寫',
+            '餐廳地址': addr  || '未填寫',
+            '推廣目的': goal  || '未填寫',
+            '推廣服務': serviceText,
+            '附加服務': addonText,
+            '加急選項': urgentText,
+            '預計合計': totalText,
+            '備註':     note  || '無'
+        };
+
+        const btn = document.getElementById('submitBtn');
+        btn.textContent = '提交中…';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('https://formspree.io/f/xlgvgypn', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body:    JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                document.getElementById('s4').classList.remove('show');
+                document.getElementById('sSuccess').classList.add('show');
+                document.getElementById('progressWrap').style.display = 'none';
+                window.scrollTo(0, 0);
+            } else {
+                btn.textContent = '確認提交 ✓';
+                btn.disabled = false;
+                alert('提交失敗，請重試或透過 IG DM 聯絡我們');
+            }
+        } catch (err) {
+            btn.textContent = '確認提交 ✓';
+            btn.disabled = false;
+            alert('網絡錯誤，請檢查連線後重試');
+        }
     }
 
     setProgress(1);
