@@ -1165,11 +1165,12 @@
                 document.getElementById('sSuccess').classList.add('show');
                 document.getElementById('progressWrap').style.display = 'none';
                 window.scrollTo(0, 0);
-            } else {
-                btn.textContent = '確認提交 ✓';
-                btn.disabled = false;
-                alert('提交失敗，請重試或透過 IG DM 聯絡我們');
-            }
+} else {
+    const errData = await res.json();
+    btn.textContent = '確認提交 ✓';
+    btn.disabled = false;
+    alert('錯誤：' + JSON.stringify(errData));
+}
         } catch (err) {
             btn.textContent = '確認提交 ✓';
             btn.disabled = false;
