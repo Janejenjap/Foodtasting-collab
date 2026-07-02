@@ -170,6 +170,15 @@
         .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @media (max-width: 520px) { .field-row { grid-template-columns: 1fr; } }
 
+        /* ── 新增：Email 錯誤提示 ── */
+        .field-error {
+            font-size: 11px;
+            color: #e85555;
+            margin-top: 4px;
+            display: none;
+        }
+        .field-input.input-error { border-color: #e85555; }
+
         .section-sep {
             font-size: 13px; font-weight: 700; color: #2c2c2c;
             margin: 20px 0 12px;
@@ -327,7 +336,6 @@
         }
         .addon-content { display: flex; flex-direction: column; gap: 3px; }
         .addon-name  { font-size: 13px; font-weight: 700; color: #2c2c2c; }
-        /* ── NEW：附加服務說明文字 ── */
         .addon-desc  {
             font-size: 11px; color: #999;
             line-height: 1.55; font-weight: 400;
@@ -468,7 +476,11 @@
             </div>
             <div class="field-group">
                 <label class="field-label">電郵地址 <span class="req">*</span></label>
-                <input class="field-input" type="email" id="f_email" placeholder="example@email.com">
+                <input class="field-input" type="email" id="f_email"
+                    placeholder="example@email.com"
+                    oninput="validateEmail()"
+                    onblur="validateEmail()">
+                <div class="field-error" id="email-error">請輸入有效的電郵地址（例：example@email.com）</div>
             </div>
         </div>
 
@@ -662,7 +674,6 @@
         <div class="section-sep">🎬 製作附加服務</div>
         <div class="addon-grid">
 
-            <!-- 複雜場景拍攝 -->
             <div class="addon-item" id="ai_complex" onclick="pickAddon('complex', 200)">
                 <input type="checkbox" id="ac_complex">
                 <div class="addon-content">
@@ -672,7 +683,6 @@
                 </div>
             </div>
 
-            <!-- 中英雙語字幕 -->
             <div class="addon-item" id="ai_caption" onclick="pickAddon('caption', 100)">
                 <input type="checkbox" id="ac_caption">
                 <div class="addon-content">
@@ -682,7 +692,6 @@
                 </div>
             </div>
 
-            <!-- 音效製作 -->
             <div class="addon-item" id="ai_sound" onclick="pickAddon('sound', 100)">
                 <input type="checkbox" id="ac_sound">
                 <div class="addon-content">
@@ -839,12 +848,27 @@
         openrice: 'OpenRice', googlemap: 'Google Map', xhs: 'XHS 小紅書'
     };
 
-    // ✦ 已更新：caption 改名為「中英雙語字幕」
     const ADDONS = {
         complex: { name: '複雜場景拍攝',  price: 200 },
         caption: { name: '中英雙語字幕',  price: 100 },
         sound:   { name: '音效製作',       price: 100 }
     };
+
+    // ── Email 格式驗證 ─────────────────────────────────────
+    function validateEmail() {
+        const el    = document.getElementById('f_email');
+        const errEl = document.getElementById('email-error');
+        const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (el.value.trim() && !regex.test(el.value.trim())) {
+            el.classList.add('input-error');
+            errEl.style.display = 'block';
+            return false;
+        } else {
+            el.classList.remove('input-error');
+            errEl.style.display = 'none';
+            return true;
+        }
+    }
 
     // ── Progress ───────────────────────────────────────────
     function setProgress(step) {
@@ -870,6 +894,10 @@
                     setTimeout(() => { el.style.borderColor = ''; }, 2000);
                     return;
                 }
+            }
+            if (!validateEmail()) {
+                document.getElementById('f_email').focus();
+                return;
             }
         }
         if (from === 2) {
@@ -1165,12 +1193,11 @@
                 document.getElementById('sSuccess').classList.add('show');
                 document.getElementById('progressWrap').style.display = 'none';
                 window.scrollTo(0, 0);
-} else {
-    const errData = await res.json();
-    btn.textContent = '確認提交 ✓';
-    btn.disabled = false;
-    alert('錯誤：' + JSON.stringify(errData));
-}
+            } else {
+                btn.textContent = '確認提交 ✓';
+                btn.disabled = false;
+                alert('提交失敗，請重試或透過 IG DM 聯絡我們');
+            }
         } catch (err) {
             btn.textContent = '確認提交 ✓';
             btn.disabled = false;
